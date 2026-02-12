@@ -643,3 +643,82 @@ async fn test_shell_permissive_mode() {
 
     assert!(result.is_ok());
 }
+
+// ============================================================================
+// Runtime Integration Tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_runtime_factory_native() {
+    use zeptoclaw::config::RuntimeConfig;
+    use zeptoclaw::runtime::create_runtime;
+
+    let config = RuntimeConfig::default();
+    let runtime = create_runtime(&config).await.unwrap();
+    assert_eq!(runtime.name(), "native");
+}
+
+#[tokio::test]
+async fn test_available_runtimes_includes_native() {
+    use zeptoclaw::runtime::available_runtimes;
+
+    let runtimes = available_runtimes().await;
+    assert!(runtimes.contains(&"native"));
+}
+
+#[tokio::test]
+async fn test_shell_tool_with_native_runtime() {
+    use zeptoclaw::runtime::NativeRuntime;
+    use zeptoclaw::tools::shell::ShellTool;
+    use zeptoclaw::tools::{Tool, ToolContext};
+    use std::sync::Arc;
+
+    let runtime = Arc::new(NativeRuntime::new());
+    let tool = ShellTool::with_runtime(runtime);
+    let ctx = ToolContext::new();
+
+    let result = tool
+        .execute(serde_json::json!({"command": "echo hello"}), &ctx)
+        .await;
+
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("hello"));
+}
+
+#[tokio::test]
+async fn test_shell_tool_runtime_with_workspace() {
+    use zeptoclaw::runtime::NativeRuntime;
+    use zeptoclaw::tools::shell::ShellTool;
+    use zeptoclaw::tools::{Tool, ToolContext};
+    use std::sync::Arc;
+    use tempfile::tempdir;
+
+    let dir = tempdir().unwrap();
+    std::fs::write(dir.path().join("test.txt"), "content").unwrap();
+
+    let runtime = Arc::new(NativeRuntime::new());
+    let tool = ShellTool::with_runtime(runtime);
+    let ctx = ToolContext::new().with_workspace(dir.path().to_str().unwrap());
+
+    let result = tool
+        .execute(serde_json::json!({"command": "cat test.txt"}), &ctx)
+        .await;
+
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("content"));
+}
+
+#[tokio::test]
+async fn test_config_runtime_serialization() {
+    use zeptoclaw::config::{RuntimeConfig, RuntimeType};
+
+    let mut config = RuntimeConfig::default();
+    config.runtime_type = RuntimeType::Docker;
+    config.docker.image = "ubuntu:22.04".to_string();
+
+    let json = serde_json::to_string(&config).unwrap();
+    let parsed: RuntimeConfig = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(parsed.runtime_type, RuntimeType::Docker);
+    assert_eq!(parsed.docker.image, "ubuntu:22.04");
+}
