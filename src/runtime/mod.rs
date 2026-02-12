@@ -9,11 +9,13 @@
 #[cfg(target_os = "macos")]
 pub mod apple;
 pub mod docker;
+pub mod factory;
 pub mod native;
 pub mod types;
 
 #[cfg(target_os = "macos")]
 pub use apple::AppleContainerRuntime;
 pub use docker::DockerRuntime;
+pub use factory::{available_runtimes, create_runtime};
 pub use native::NativeRuntime;
 pub use types::{CommandOutput, ContainerConfig, ContainerRuntime, RuntimeError, RuntimeResult};
