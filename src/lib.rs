@@ -6,6 +6,7 @@ pub mod channels;
 pub mod config;
 pub mod error;
 pub mod providers;
+pub mod runtime;
 pub mod security;
 pub mod session;
 pub mod skills;
@@ -21,6 +22,7 @@ pub use providers::{
     ChatOptions, ClaudeProvider, LLMProvider, LLMResponse, LLMToolCall, OpenAIProvider,
     ToolDefinition, Usage,
 };
+pub use runtime::{CommandOutput, ContainerConfig, ContainerRuntime, RuntimeError, RuntimeResult};
 pub use security::{validate_path_in_workspace, SafePath, ShellSecurityConfig};
 pub use session::{Message, Role, Session, SessionManager, ToolCall};
 pub use tools::{EchoTool, Tool, ToolContext, ToolRegistry};
