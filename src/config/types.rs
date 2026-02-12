@@ -413,20 +413,11 @@ impl Default for DockerConfig {
 }
 
 /// Apple Container runtime configuration (macOS only)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct AppleContainerConfig {
     /// Container image/bundle path
     pub image: String,
     /// Additional directory mounts
     pub extra_mounts: Vec<String>,
-}
-
-impl Default for AppleContainerConfig {
-    fn default() -> Self {
-        Self {
-            image: String::new(),
-            extra_mounts: Vec::new(),
-        }
-    }
 }
