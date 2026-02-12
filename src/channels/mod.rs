@@ -109,7 +109,9 @@
 //! ```
 
 mod manager;
+pub mod telegram;
 mod types;
 
 pub use manager::ChannelManager;
+pub use telegram::TelegramChannel;
 pub use types::{BaseChannelConfig, Channel};
