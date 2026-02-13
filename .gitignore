@@ -26,3 +26,7 @@ external/
 
 # Internal planning docs (local-only)
 docs/internal/
+
+# Local frontend artifacts
+landing/**/node_modules/
+landing/**/.wrangler/
