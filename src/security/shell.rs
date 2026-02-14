@@ -364,15 +364,12 @@ mod tests {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn test_scripting_language_exec_blocked() {
         let config = ShellSecurityConfig::new();
-        assert!(config
-            .validate_command("python -c 'import os; os.system(\"rm -rf /\")'")
-            .is_err());
+        assert!(config.validate_command("python -c 'import os; os.system(\"rm -rf /\")'").is_err());
         assert!(config.validate_command("python3 -c 'print(1)'").is_err());
-        assert!(config
-            .validate_command("perl -e 'system(\"whoami\")'")
-            .is_err());
+        assert!(config.validate_command("perl -e 'system(\"whoami\")'").is_err());
         assert!(config
             .validate_command("ruby -e 'exec \"cat /etc/shadow\"'")
             .is_err());
