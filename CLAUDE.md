@@ -64,7 +64,7 @@ cargo fmt
 
 ```
 src/
-├── agent/          # Agent loop, context builder, token budget
+├── agent/          # Agent loop, context builder, token budget, context compaction
 ├── bus/            # Async message bus (pub/sub)
 ├── channels/       # Input channels (Telegram, Slack, CLI)
 │   ├── factory.rs  # Channel factory/registry
@@ -81,11 +81,13 @@ src/
 ├── memory/         # Workspace memory (markdown search) + long-term memory
 ├── providers/      # LLM providers (Claude, OpenAI, Retry, Fallback)
 ├── runtime/        # Container runtimes (Native, Docker, Apple)
+├── routines/       # Event/webhook/cron triggered automations
+├── safety/         # Prompt injection detection, secret leak scanning, policy engine
 ├── security/       # Shell blocklist, path validation, mount policy
 ├── session/        # Session, message persistence, conversation history
 ├── skills/         # Markdown-based skill system (loader, types)
 ├── plugins/        # Plugin system (JSON manifest, discovery, registry)
-├── tools/          # Agent tools (17 tools)
+├── tools/          # Agent tools (17 tools + MCP)
 │   ├── shell.rs       # Shell execution with runtime isolation
 │   ├── filesystem.rs  # Read, write, list, edit files
 │   ├── web.rs         # Web search (Brave) and fetch with SSRF protection
@@ -99,7 +101,11 @@ src/
 │   ├── delegate.rs    # Agent swarm delegation (DelegateTool)
 │   ├── plugin.rs      # Plugin tool adapter (PluginTool)
 │   ├── approval.rs    # Tool approval gate (ApprovalGate)
-│   └── r8r.rs         # R8r workflow integration
+│   ├── r8r.rs         # R8r workflow integration
+│   └── mcp/           # MCP (Model Context Protocol) client tools
+│       ├── protocol.rs   # JSON-RPC 2.0 types, content blocks
+│       ├── client.rs     # HTTP transport, tools cache
+│       └── wrapper.rs    # McpToolWrapper adapts MCP tools to Tool trait
 ├── utils/          # Utility functions (sanitize, metrics, telemetry, cost)
 ├── batch.rs        # Batch mode (load prompts from file, format results)
 ├── error.rs        # Error types (ZeptoError)
@@ -108,7 +114,8 @@ src/
 
 landing/
 └── zeptoclaw/
-    └── index.html  # Static landing page (hero, sections, interactive animations)
+    ├── index.html        # Static landing page (hero, sections, interactive animations)
+    └── mascot-no-bg.png  # README mascot asset used in landing hero
 ```
 
 ## Key Modules
@@ -144,7 +151,7 @@ Message input channels via `Channel` trait:
 - CLI mode via direct agent invocation
 
 ### Tools (`src/tools/`)
-15 tools via `Tool` async trait. All filesystem tools require workspace.
+15 built-in tools + dynamic MCP tools via `Tool` async trait. All filesystem tools require workspace.
 
 ### Utils (`src/utils/`)
 - `sanitize.rs` - Tool result sanitization (strip base64, hex, truncate)
@@ -165,6 +172,8 @@ Message input channels via `Channel` trait:
 - `AgentLoop` - Core message processing loop with tool execution
 - `ContextBuilder` - System prompt and conversation context builder
 - `TokenBudget` - Atomic per-session token budget tracker (lock-free via `AtomicU64`)
+- `ContextMonitor` - Token estimation (`words * 1.3 + 4/msg`), threshold-based compaction triggers
+- `Compactor` - Summarize (LLM-based) or Truncate strategies for context window management
 
 ### Memory (`src/memory/`)
 - Workspace memory - Markdown search/read with chunked scoring
@@ -175,11 +184,29 @@ Message input channels via `Channel` trait:
 - Scroll-triggered feature-card reveal and stats count-up animations
 - Architecture pipeline flow packets and enhanced terminal typing/thinking feedback
 - `prefers-reduced-motion` support for accessibility fallback
+- README mascot parity: hero now uses `landing/zeptoclaw/mascot-no-bg.png` (bundled by `landing/deploy.sh`)
+
+### Safety (`src/safety/`)
+- `SafetyLayer` - Orchestrator: length check → leak detection → policy check → injection sanitization
+- `sanitizer.rs` - Aho-Corasick multi-pattern matcher for 17 prompt injection patterns + 4 regex patterns
+- `leak_detector.rs` - 22 regex patterns for API keys/tokens/secrets; Block, Redact, or Warn actions
+- `policy.rs` - 7 security policy rules (system file access, crypto keys, SQL, shell injection, encoded exploits)
+- `validator.rs` - Input length (100KB max), null byte, whitespace ratio, repetition detection
 
 ### Security (`src/security/`)
 - `shell.rs` - Regex-based command blocklist
 - `path.rs` - Workspace path validation, symlink escape detection
 - `mount.rs` - Mount allowlist validation, docker binary verification
+
+### MCP Client (`src/tools/mcp/`)
+- `protocol.rs` - JSON-RPC 2.0 types: McpRequest, McpResponse, McpTool, ContentBlock (Text/Image/Resource)
+- `client.rs` - McpClient HTTP transport with initialize/list_tools/call_tool; RwLock tools cache
+- `wrapper.rs` - McpToolWrapper implements Tool trait; prefixed tool names (`{server}_{tool}`)
+
+### Routines (`src/routines/`)
+- `Routine` - Trigger enum (Cron/Event/Webhook/Manual), RoutineAction enum (Lightweight/FullJob)
+- `RoutineStore` - JSON file persistence, cooldown enforcement, CRUD operations
+- `RoutineEngine` - Compiled regex cache for event matching, webhook path matching, concurrent execution limits
 
 ## Configuration
 
@@ -198,6 +225,14 @@ Environment variables override config:
 - `ZEPTOCLAW_PROVIDERS_FALLBACK_ENABLED` — enable fallback provider (default: false)
 - `ZEPTOCLAW_PROVIDERS_FALLBACK_PROVIDER` — fallback provider name
 - `ZEPTOCLAW_AGENTS_DEFAULTS_TOKEN_BUDGET` — per-session token budget (default: 0 = unlimited)
+- `ZEPTOCLAW_SAFETY_ENABLED` — enable safety layer (default: true)
+- `ZEPTOCLAW_SAFETY_LEAK_DETECTION_ENABLED` — enable secret leak detection (default: true)
+- `ZEPTOCLAW_COMPACTION_ENABLED` — enable context compaction (default: false)
+- `ZEPTOCLAW_COMPACTION_CONTEXT_LIMIT` — max tokens before compaction (default: 100000)
+- `ZEPTOCLAW_COMPACTION_THRESHOLD` — compaction trigger threshold (default: 0.80)
+- `ZEPTOCLAW_ROUTINES_ENABLED` — enable routines engine (default: false)
+- `ZEPTOCLAW_ROUTINES_CRON_INTERVAL_SECS` — cron tick interval (default: 60)
+- `ZEPTOCLAW_ROUTINES_MAX_CONCURRENT` — max concurrent routine executions (default: 3)
 
 ### Compile-time Configuration
 
@@ -226,34 +261,16 @@ cargo build --release
 - **spawn_blocking**: Wraps sync I/O (memory, filesystem) in async context
 - **Conditional compilation**: `#[cfg(target_os = "macos")]` for Apple-specific code
 
-## Design Decisions
-
-### Why No Vector Embeddings / RAG
-
-ZeptoClaw uses **agentic search** instead of RAG + vector databases for memory and context retrieval. Early versions of Claude Code used RAG with a local vector DB but found that agentic search works better — it's simpler and avoids issues around security, privacy, staleness, and reliability.
-
-**What we use instead:**
-- Agent tools (`shell`, `filesystem`, `memory`) let the agent decide what to search for
-- `longterm_memory` tool provides persistent key-value storage with keyword/tag search
-- Workspace memory uses markdown search with chunked scoring
-
-**Why this is better for ZeptoClaw:**
-- Zero binary bloat (no embedding model or vector DB dependency)
-- Always reads current files — no stale index problems
-- No data sent to embedding APIs — fully local and private
-- Agent adapts search strategy per query instead of relying on cosine similarity
-- Keeps the 5MB binary small and the architecture simple
-
 ## Testing
 
 ```bash
-# Unit tests (974 tests)
+# Unit tests (1148 tests)
 cargo test --lib
 
 # Integration tests (68 tests)
 cargo test --test integration
 
-# All tests (1,140 total including doc tests)
+# All tests (~1,314 total including doc tests)
 cargo test
 
 # Specific test
@@ -306,3 +323,4 @@ Key crates:
 - `tracing` - Structured logging
 - `clap` - CLI argument parsing
 - `scraper` - HTML parsing for web_fetch
+- `aho-corasick` - Multi-pattern string matching for safety layer

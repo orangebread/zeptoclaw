@@ -44,6 +44,94 @@ pub struct Config {
     pub batch: crate::batch::BatchConfig,
     /// Hook system configuration
     pub hooks: crate::hooks::HooksConfig,
+    /// Safety layer configuration
+    pub safety: crate::safety::SafetyConfig,
+    /// Context compaction configuration
+    pub compaction: CompactionConfig,
+    /// MCP (Model Context Protocol) server configuration
+    pub mcp: McpConfig,
+    /// Routines (event/webhook/cron triggers) configuration
+    pub routines: RoutinesConfig,
+}
+
+// ============================================================================
+// Compaction Configuration
+// ============================================================================
+
+/// Context compaction configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CompactionConfig {
+    /// Whether automatic context compaction is enabled.
+    pub enabled: bool,
+    /// Maximum context window size in tokens.
+    pub context_limit: usize,
+    /// Fraction (0.0-1.0) of context_limit that triggers compaction.
+    pub threshold: f64,
+}
+
+impl Default for CompactionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            context_limit: 100_000,
+            threshold: 0.80,
+        }
+    }
+}
+
+// ============================================================================
+// MCP Configuration
+// ============================================================================
+
+/// MCP (Model Context Protocol) server configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct McpConfig {
+    /// MCP server definitions.
+    pub servers: Vec<McpServerConfig>,
+}
+
+/// Configuration for a single MCP server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    /// Human-readable server name (used as tool name prefix).
+    pub name: String,
+    /// Server URL endpoint.
+    pub url: String,
+    /// Request timeout in seconds (default: 30).
+    #[serde(default = "default_mcp_timeout")]
+    pub timeout_secs: u64,
+}
+
+fn default_mcp_timeout() -> u64 {
+    30
+}
+
+// ============================================================================
+// Routines Configuration
+// ============================================================================
+
+/// Routines (event/webhook/cron triggers) configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RoutinesConfig {
+    /// Whether the routines engine is enabled.
+    pub enabled: bool,
+    /// Cron tick interval in seconds.
+    pub cron_interval_secs: u64,
+    /// Maximum concurrent routine executions.
+    pub max_concurrent: usize,
+}
+
+impl Default for RoutinesConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            cron_interval_secs: 60,
+            max_concurrent: 3,
+        }
+    }
 }
 
 /// Agent configuration

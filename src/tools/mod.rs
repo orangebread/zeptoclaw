@@ -59,6 +59,7 @@ pub mod delegate;
 pub mod filesystem;
 pub mod gsheets;
 pub mod longterm_memory;
+pub mod mcp;
 pub mod memory;
 pub mod message;
 pub mod plugin;

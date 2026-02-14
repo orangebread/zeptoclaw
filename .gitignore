@@ -34,8 +34,13 @@ target/
 # External references
 external/
 
-# Internal planning docs (local-only)
+# Internal docs (local-only)
 docs/internal/
+docs/plans/*.md
+!docs/plans/TODO.md
+docs/COMPARISON.md
+docs/LAUNCH.md
+docs/LAUNCH_BENCHMARK.md
 
 # Local frontend artifacts
 landing/**/node_modules/

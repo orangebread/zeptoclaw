@@ -2,20 +2,6 @@
 
 Project-level guidance for coding agents working in this repository.
 
-## Scope
-
-These instructions apply to the entire `rust/` project.
-
-## Post-Implementation Checklist
-
-**After completing ANY feature, you MUST update these files:**
-
-1. **`docs/plans/TODO.md`** — check off completed items, add new backlog items if discovered
-2. **`CLAUDE.md`** — update architecture tree, test counts, module descriptions, new CLI flags
-3. **`AGENTS.md`** (this file) — update "Current State" section below
-
-If you skip this, the next agent starts with stale context and wastes time.
-
 ## Project Snapshot
 
 - Language: Rust (edition 2021)
@@ -23,53 +9,17 @@ If you skip this, the next agent starts with stale context and wastes time.
 - Extra binary: `benchmark` (`src/bin/benchmark.rs`)
 - Benchmarks: `benches/message_bus.rs`
 - Integration tests: `tests/integration.rs`
-- Codebase: ~38,000+ lines of Rust
-- Tests: 974 lib + 68 integration + 98 doc = 1,140 total
+- Codebase: ~43,000+ lines of Rust
+- Tests: 1148 lib + 68 integration + ~98 doc = ~1,314 total
 
-## Current State (2026-02-14)
+## Post-Implementation Checklist
 
-### Recently Completed
-- ZeptoClaw landing page animation refresh (`landing/zeptoclaw/index.html`) — hero energy field, mascot blink/look motion, magnetic CTA buttons, staggered feature reveals, architecture flow packets, stat count-up, and richer terminal animation with reduced-motion fallback
-- CLI regression recovery — restored `batch`, `history`, `template` commands and `agent --template` wiring in `src/cli/`
-- Config check hardening — recognizes `agents.defaults.streaming` + `token_budget`, now exits non-zero on validation errors
-- CLI UX polish — `--version` support, help on empty invocation, conflict handling for `heartbeat --show/--edit`, and non-zero exit for missing `skills show`
-- Onboarding safety — existing invalid config now fails with context instead of silently overwriting defaults
-- Streaming responses — SSE for both Claude and OpenAI providers, `--stream` CLI flag
-- Agent swarm — DelegateTool with recursion blocking, ProviderRef wrapper
-- RetryProvider — exponential backoff on 429/5xx, wired into provider stack
-- FallbackProvider — primary → secondary auto-failover, wired with multi-provider resolution
-- MetricsCollector — wired into AgentLoop, tracks per-tool duration/success + token usage
-- Config fields for retry (`providers.retry.*`) and fallback (`providers.fallback.*`) with env overrides
-- Provider stack: base provider → optional FallbackProvider → optional RetryProvider
-- ConversationHistory (`src/session/history.rs`) — CLI session discovery, listing, fuzzy search, cleanup (12 tests)
-- TokenBudget (`src/agent/budget.rs`) — atomic per-session token budget with lock-free counters (18 tests)
-- OutputFormat (`src/providers/structured.rs`) — Text/Json/JsonSchema enum with OpenAI + Claude helpers (19 tests)
-- LongTermMemory (`src/memory/longterm.rs`) — persistent key-value store with categories, tags, access tracking (19 tests)
-- ConversationHistory CLI — `history list`, `history show`, `history cleanup` commands wired in `src/cli/mod.rs`
-- TokenBudget wired — `token_budget` config field, env override, budget check in agent loop before LLM calls
-- OutputFormat wired — `output_format` on `ChatOptions`, OpenAI `response_format`, Claude system suffix
-- LongTermMemoryTool (`src/tools/longterm_memory.rs`) — agent tool for set/get/search/delete/list/categories (22 tests)
-- WebhookChannel (`src/channels/webhook.rs`) — HTTP POST inbound with auth, wired in factory (28 tests)
-- DiscordChannel (`src/channels/discord.rs`) — Gateway WebSocket + REST, wired in factory (27 tests)
-- Tool approval (`src/tools/approval.rs`) — ApprovalGate with configurable policies (24 tests)
-- Agent templates (`src/config/templates.rs`) — 4 built-in + JSON file loading (21 tests)
-- Plugin system (`src/plugins/`) — JSON manifest plugins, discovery, validation, registry (70+ tests)
-- Integration expansion (`tests/integration.rs`) — fallback provider, cron scheduling dispatch, heartbeat trigger behavior, and skills availability filtering
+**After completing ANY feature, you MUST update these files:**
 
-### Deep Wiring (2026-02-14)
-- Tool approval wired — `ApprovalConfig` on `Config`, `ApprovalGate` checked before each tool execution in agent loop (both streaming and non-streaming paths)
-- Agent templates wired — `template list`, `template show` CLI commands, `agent --template <name>` flag applies system prompt + model/tokens/temperature overrides
-- Plugin system wired — `PluginConfig` on `Config`, `PluginTool` adapter (`src/tools/plugin.rs`, 10 tests), plugin discovery + registration in `create_agent()`
-- Webhook channel wired — `WebhookConfig` on `ChannelsConfig`, registered in factory with bind/port/auth/allowlist
-- DiscordChannel — fully wired in factory, functional when `discord.enabled=true` with token
+1. **`CLAUDE.md`** — update architecture tree, test counts, module descriptions, new CLI flags
+2. **`AGENTS.md`** (this file) — update project snapshot above
 
-### Low Priority Features (2026-02-14)
-- Telemetry export (`src/utils/telemetry.rs`) — Prometheus text exposition + JSON renderers, `TelemetryConfig` on `Config` (13 tests)
-- Cost tracking (`src/utils/cost.rs`) — model pricing tables for 8 models, `CostTracker` with per-provider/model accumulation, `CostConfig` on `Config` (18 tests)
-- Batch mode (`src/batch.rs`) — load prompts from text/jsonl files, `BatchResult` + formatters, `batch` CLI command with --input/--output/--format/--stop-on-error/--stream/--template (15+ tests)
-
-### Roadmap
-See `docs/plans/TODO.md` for the full checklist.
+If you skip this, the next agent starts with stale context and wastes time.
 
 ## File Ownership Rules (for parallel agents)
 

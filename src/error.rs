@@ -56,6 +56,14 @@ pub enum ZeptoError {
     /// Security violations (path traversal attempts, blocked commands, etc.)
     #[error("Security violation: {0}")]
     SecurityViolation(String),
+
+    /// Safety layer violations (prompt injection, credential leaks, policy violations, etc.)
+    #[error("Safety violation: {0}")]
+    Safety(String),
+
+    /// MCP (Model Context Protocol) errors (server communication, tool execution, etc.)
+    #[error("MCP error: {0}")]
+    Mcp(String),
 }
 
 /// A specialized `Result` type for ZeptoClaw operations.
@@ -98,6 +106,8 @@ mod tests {
         let _ = ZeptoError::NotFound("test".into());
         let _ = ZeptoError::Unauthorized("test".into());
         let _ = ZeptoError::SecurityViolation("test".into());
+        let _ = ZeptoError::Safety("test".into());
+        let _ = ZeptoError::Mcp("test".into());
     }
 
     #[test]

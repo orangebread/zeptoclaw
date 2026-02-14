@@ -130,6 +130,15 @@ impl Config {
         if let Ok(val) = std::env::var("ZEPTOCLAW_HOOKS_ENABLED") {
             self.hooks.enabled = val.eq_ignore_ascii_case("true") || val == "1";
         }
+
+        // Safety layer
+        self.apply_safety_env_overrides();
+
+        // Context compaction
+        self.apply_compaction_env_overrides();
+
+        // Routines
+        self.apply_routines_env_overrides();
     }
 
     /// Apply provider-specific environment variable overrides
@@ -488,6 +497,58 @@ impl Config {
                 .filter(|item| !item.is_empty())
                 .map(str::to_string)
                 .collect();
+        }
+    }
+
+    /// Apply safety-layer environment variable overrides.
+    fn apply_safety_env_overrides(&mut self) {
+        if let Ok(val) = std::env::var("ZEPTOCLAW_SAFETY_ENABLED") {
+            self.safety.enabled = val.eq_ignore_ascii_case("true") || val == "1";
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_SAFETY_INJECTION_CHECK_ENABLED") {
+            self.safety.injection_check_enabled = val.eq_ignore_ascii_case("true") || val == "1";
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_SAFETY_LEAK_DETECTION_ENABLED") {
+            self.safety.leak_detection_enabled = val.eq_ignore_ascii_case("true") || val == "1";
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_SAFETY_MAX_OUTPUT_LENGTH") {
+            if let Ok(v) = val.parse::<usize>() {
+                self.safety.max_output_length = v.clamp(1_000, 10_000_000);
+            }
+        }
+    }
+
+    /// Apply context-compaction environment variable overrides.
+    fn apply_compaction_env_overrides(&mut self) {
+        if let Ok(val) = std::env::var("ZEPTOCLAW_COMPACTION_ENABLED") {
+            self.compaction.enabled = val.eq_ignore_ascii_case("true") || val == "1";
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_COMPACTION_CONTEXT_LIMIT") {
+            if let Ok(v) = val.parse::<usize>() {
+                self.compaction.context_limit = v.clamp(1_000, 1_000_000);
+            }
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_COMPACTION_THRESHOLD") {
+            if let Ok(v) = val.parse::<f64>() {
+                self.compaction.threshold = v.clamp(0.1, 1.0);
+            }
+        }
+    }
+
+    /// Apply routines environment variable overrides.
+    fn apply_routines_env_overrides(&mut self) {
+        if let Ok(val) = std::env::var("ZEPTOCLAW_ROUTINES_ENABLED") {
+            self.routines.enabled = val.eq_ignore_ascii_case("true") || val == "1";
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_ROUTINES_CRON_INTERVAL_SECS") {
+            if let Ok(v) = val.parse::<u64>() {
+                self.routines.cron_interval_secs = v.clamp(1, 3600);
+            }
+        }
+        if let Ok(val) = std::env::var("ZEPTOCLAW_ROUTINES_MAX_CONCURRENT") {
+            if let Ok(v) = val.parse::<usize>() {
+                self.routines.max_concurrent = v.clamp(1, 100);
+            }
         }
     }
 

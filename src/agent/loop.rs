@@ -10,11 +10,14 @@ use std::sync::Arc;
 use tokio::sync::{watch, Mutex, RwLock};
 use tracing::{debug, error, info, info_span, Instrument};
 
+use crate::agent::compaction::truncate_messages;
+use crate::agent::context_monitor::ContextMonitor;
 use crate::bus::{InboundMessage, MessageBus, OutboundMessage};
 use crate::config::Config;
 use crate::error::{Result, ZeptoError};
 use crate::health::UsageMetrics;
 use crate::providers::{ChatOptions, LLMProvider};
+use crate::safety::SafetyLayer;
 use crate::session::{Message, Role, SessionManager, ToolCall};
 use crate::tools::approval::ApprovalGate;
 use crate::tools::{Tool, ToolContext, ToolRegistry};
@@ -84,6 +87,10 @@ pub struct AgentLoop {
     token_budget: Arc<TokenBudget>,
     /// Tool approval gate for policy-based tool gating.
     approval_gate: Arc<ApprovalGate>,
+    /// Optional safety layer for tool output sanitization.
+    safety_layer: Option<Arc<SafetyLayer>>,
+    /// Optional context monitor for compaction.
+    context_monitor: Option<ContextMonitor>,
 }
 
 impl AgentLoop {
@@ -112,6 +119,19 @@ impl AgentLoop {
         let (shutdown_tx, _) = watch::channel(false);
         let token_budget = Arc::new(TokenBudget::new(config.agents.defaults.token_budget));
         let approval_gate = Arc::new(ApprovalGate::new(config.approval.clone()));
+        let safety_layer = if config.safety.enabled {
+            Some(Arc::new(SafetyLayer::new(config.safety.clone())))
+        } else {
+            None
+        };
+        let context_monitor = if config.compaction.enabled {
+            Some(ContextMonitor::new(
+                config.compaction.context_limit,
+                config.compaction.threshold,
+            ))
+        } else {
+            None
+        };
         Self {
             config,
             session_manager: Arc::new(session_manager),
@@ -128,6 +148,8 @@ impl AgentLoop {
             streaming: AtomicBool::new(false),
             token_budget,
             approval_gate,
+            safety_layer,
+            context_monitor,
         }
     }
 
@@ -147,6 +169,19 @@ impl AgentLoop {
         let (shutdown_tx, _) = watch::channel(false);
         let token_budget = Arc::new(TokenBudget::new(config.agents.defaults.token_budget));
         let approval_gate = Arc::new(ApprovalGate::new(config.approval.clone()));
+        let safety_layer = if config.safety.enabled {
+            Some(Arc::new(SafetyLayer::new(config.safety.clone())))
+        } else {
+            None
+        };
+        let context_monitor = if config.compaction.enabled {
+            Some(ContextMonitor::new(
+                config.compaction.context_limit,
+                config.compaction.threshold,
+            ))
+        } else {
+            None
+        };
         Self {
             config,
             session_manager: Arc::new(session_manager),
@@ -163,6 +198,8 @@ impl AgentLoop {
             streaming: AtomicBool::new(false),
             token_budget,
             approval_gate,
+            safety_layer,
+            context_monitor,
         }
     }
 
@@ -283,6 +320,28 @@ impl AgentLoop {
         // Get or create session
         let mut session = self.session_manager.get_or_create(&msg.session_key).await?;
 
+        // Apply context compaction if needed
+        if let Some(ref monitor) = self.context_monitor {
+            if monitor.needs_compaction(&session.messages) {
+                let strategy = monitor.suggest_strategy(&session.messages);
+                match strategy {
+                    super::context_monitor::CompactionStrategy::Truncate { keep_recent } => {
+                        debug!(keep_recent, "Compacting context via truncation");
+                        session.messages = truncate_messages(session.messages, keep_recent);
+                    }
+                    super::context_monitor::CompactionStrategy::Summarize { keep_recent } => {
+                        // For now, fall back to truncation (summarize requires LLM call)
+                        debug!(
+                            keep_recent,
+                            "Compacting context via truncation (summarize fallback)"
+                        );
+                        session.messages = truncate_messages(session.messages, keep_recent);
+                    }
+                    super::context_monitor::CompactionStrategy::None => {}
+                }
+            }
+        }
+
         // Build messages with history
         let messages = self
             .context_builder
@@ -360,6 +419,7 @@ impl AgentLoop {
                 .with_workspace(&workspace_str);
 
             let approval_gate = Arc::clone(&self.approval_gate);
+            let safety_layer = self.safety_layer.clone();
             let hook_engine = Arc::new(
                 crate::hooks::HookEngine::new(self.config.hooks.clone())
                     .with_bus(Arc::clone(&self.bus)),
@@ -377,6 +437,7 @@ impl AgentLoop {
                     let metrics_collector = Arc::clone(&metrics_collector);
                     let gate = Arc::clone(&approval_gate);
                     let hooks = Arc::clone(&hook_engine);
+                    let safety = safety_layer.clone();
 
                     async move {
                         let args: serde_json::Value = match serde_json::from_str(&raw_args) {
@@ -433,6 +494,21 @@ impl AgentLoop {
                             &result,
                             crate::utils::sanitize::DEFAULT_MAX_RESULT_BYTES,
                         );
+
+                        // Apply safety layer if enabled
+                        let sanitized = if let Some(ref safety) = safety {
+                            let safety_result = safety.check_tool_output(&sanitized);
+                            if safety_result.blocked {
+                                format!(
+                                    "[Safety blocked]: {}",
+                                    safety_result.block_reason.unwrap_or_default()
+                                )
+                            } else {
+                                safety_result.content
+                            }
+                        } else {
+                            sanitized
+                        };
 
                         (id, sanitized)
                     }
@@ -527,6 +603,28 @@ impl AgentLoop {
         let metrics_collector = Arc::clone(&self.metrics_collector);
 
         let mut session = self.session_manager.get_or_create(&msg.session_key).await?;
+
+        // Apply context compaction if needed
+        if let Some(ref monitor) = self.context_monitor {
+            if monitor.needs_compaction(&session.messages) {
+                let strategy = monitor.suggest_strategy(&session.messages);
+                match strategy {
+                    super::context_monitor::CompactionStrategy::Truncate { keep_recent } => {
+                        debug!(keep_recent, "Compacting context via truncation (streaming)");
+                        session.messages = truncate_messages(session.messages, keep_recent);
+                    }
+                    super::context_monitor::CompactionStrategy::Summarize { keep_recent } => {
+                        debug!(
+                            keep_recent,
+                            "Compacting context via truncation (summarize fallback, streaming)"
+                        );
+                        session.messages = truncate_messages(session.messages, keep_recent);
+                    }
+                    super::context_monitor::CompactionStrategy::None => {}
+                }
+            }
+        }
+
         let messages = self
             .context_builder
             .build_messages(session.messages.clone(), &msg.content);
@@ -588,6 +686,7 @@ impl AgentLoop {
                 .with_workspace(&workspace_str);
 
             let approval_gate = Arc::clone(&self.approval_gate);
+            let safety_layer_stream = self.safety_layer.clone();
             let tool_futures: Vec<_> = response
                 .tool_calls
                 .iter()
@@ -599,6 +698,7 @@ impl AgentLoop {
                     let raw_args = tool_call.arguments.clone();
                     let metrics_collector = Arc::clone(&metrics_collector);
                     let gate = Arc::clone(&approval_gate);
+                    let safety = safety_layer_stream.clone();
 
                     async move {
                         let args: serde_json::Value = serde_json::from_str(&raw_args)
@@ -630,6 +730,22 @@ impl AgentLoop {
                             &result,
                             crate::utils::sanitize::DEFAULT_MAX_RESULT_BYTES,
                         );
+
+                        // Apply safety layer if enabled
+                        let sanitized = if let Some(ref safety) = safety {
+                            let safety_result = safety.check_tool_output(&sanitized);
+                            if safety_result.blocked {
+                                format!(
+                                    "[Safety blocked]: {}",
+                                    safety_result.block_reason.unwrap_or_default()
+                                )
+                            } else {
+                                safety_result.content
+                            }
+                        } else {
+                            sanitized
+                        };
+
                         (id, sanitized)
                     }
                 })

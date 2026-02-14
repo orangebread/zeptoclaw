@@ -55,9 +55,12 @@
 //! ```
 
 pub mod budget;
+pub mod compaction;
 mod context;
+pub mod context_monitor;
 mod r#loop;
 
 pub use budget::TokenBudget;
 pub use context::ContextBuilder;
+pub use context_monitor::{CompactionStrategy, ContextMonitor};
 pub use r#loop::AgentLoop;

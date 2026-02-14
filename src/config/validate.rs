@@ -22,6 +22,10 @@ const KNOWN_TOP_LEVEL: &[&str] = &[
     "cost",
     "batch",
     "hooks",
+    "safety",
+    "compaction",
+    "mcp",
+    "routines",
 ];
 
 /// Known fields for each section. Nested as section.field.
