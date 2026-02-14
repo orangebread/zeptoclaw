@@ -32,6 +32,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::bus::{InboundMessage, MessageBus, OutboundMessage};
 use crate::config::WhatsAppConfig;
+use crate::deps::{DepKind, Dependency, HasDependencies, HealthCheck};
 use crate::error::{Result, ZeptoError};
 
 use super::{BaseChannelConfig, Channel};
@@ -474,6 +475,28 @@ impl Channel for WhatsAppChannel {
     }
 }
 
+impl HasDependencies for WhatsAppChannel {
+    fn dependencies(&self) -> Vec<Dependency> {
+        if !self.config.bridge_managed {
+            return vec![];
+        }
+
+        vec![Dependency {
+            name: "whatsmeow-bridge".to_string(),
+            kind: DepKind::Binary {
+                repo: "qhkm/whatsmeow-rs".to_string(),
+                asset_pattern: "whatsmeow-bridge-{os}-{arch}".to_string(),
+                version: String::new(), // latest
+            },
+            health_check: HealthCheck::WebSocket {
+                url: self.config.bridge_url.clone(),
+            },
+            env: std::collections::HashMap::new(),
+            args: vec![],
+        }]
+    }
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -491,6 +514,7 @@ mod tests {
             enabled: true,
             bridge_url: "ws://localhost:3001".to_string(),
             allow_from: vec!["60123456789".to_string()],
+            bridge_managed: true,
         }
     }
 
@@ -512,6 +536,7 @@ mod tests {
             enabled: true,
             bridge_url: "ws://bridge:3001".to_string(),
             allow_from: vec!["U1".to_string(), "U2".to_string()],
+            bridge_managed: true,
         };
         let channel = WhatsAppChannel::new(config, test_bus());
 
@@ -538,6 +563,7 @@ mod tests {
             enabled: true,
             bridge_url: "ws://localhost:3001".to_string(),
             allow_from: vec![],
+            bridge_managed: true,
         };
         let channel = WhatsAppChannel::new(config, test_bus());
 
@@ -830,6 +856,7 @@ mod tests {
             enabled: false,
             bridge_url: "ws://localhost:3001".to_string(),
             allow_from: vec![],
+            bridge_managed: true,
         };
         let mut channel = WhatsAppChannel::new(config, test_bus());
 
@@ -844,6 +871,7 @@ mod tests {
             enabled: true,
             bridge_url: String::new(),
             allow_from: vec![],
+            bridge_managed: true,
         };
         let mut channel = WhatsAppChannel::new(config, test_bus());
 
@@ -874,6 +902,7 @@ mod tests {
             enabled: true,
             bridge_url: "ws://localhost:3001".to_string(),
             allow_from: vec![],
+            bridge_managed: true,
         };
         let mut channel = WhatsAppChannel::new(config, test_bus());
         // Manually set running + outbound channel (avoids actual WebSocket connect)
@@ -947,5 +976,45 @@ mod tests {
         assert!(!config.enabled);
         assert_eq!(config.bridge_url, "ws://localhost:3001");
         assert!(config.allow_from.is_empty());
+        assert!(config.bridge_managed);
+    }
+
+    // -----------------------------------------------------------------------
+    // 10. bridge_managed config
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_whatsapp_config_bridge_managed_default() {
+        let json = r#"{}"#;
+        let config: WhatsAppConfig = serde_json::from_str(json).expect("should parse");
+        assert!(config.bridge_managed);
+    }
+
+    #[test]
+    fn test_whatsapp_config_bridge_managed_false() {
+        let json = r#"{"bridge_managed": false}"#;
+        let config: WhatsAppConfig = serde_json::from_str(json).expect("should parse");
+        assert!(!config.bridge_managed);
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. HasDependencies
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_has_dependencies_managed() {
+        let mut config = test_config();
+        config.bridge_managed = true;
+        let channel = WhatsAppChannel::new(config, test_bus());
+        let deps = channel.dependencies();
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].name, "whatsmeow-bridge");
+    }
+
+    #[test]
+    fn test_has_dependencies_unmanaged() {
+        let mut config = test_config();
+        config.bridge_managed = false;
+        let channel = WhatsAppChannel::new(config, test_bus());
+        let deps = channel.dependencies();
+        assert!(deps.is_empty());
     }
 }

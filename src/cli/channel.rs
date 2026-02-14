@@ -331,6 +331,7 @@ mod tests {
             enabled: false,
             bridge_url: "ws://localhost:3001".to_string(),
             allow_from: vec![],
+            bridge_managed: true,
         });
         let result = test_whatsapp(&config).await;
         assert!(result.is_err());
@@ -345,6 +346,7 @@ mod tests {
             enabled: true,
             bridge_url: String::new(),
             allow_from: vec![],
+            bridge_managed: true,
         });
         let result = test_whatsapp(&config).await;
         assert!(result.is_err());

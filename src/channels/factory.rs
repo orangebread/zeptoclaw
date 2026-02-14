@@ -183,6 +183,7 @@ mod tests {
             enabled: true,
             bridge_url: "ws://localhost:3001".to_string(),
             allow_from: Vec::new(),
+            bridge_managed: true,
         });
 
         let manager = ChannelManager::new(bus.clone(), config.clone());
