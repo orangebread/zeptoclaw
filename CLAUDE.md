@@ -82,6 +82,11 @@ src/
 ├── cli/            # Clap command parsing + command handlers
 ├── config/         # Configuration types and loading
 ├── cron/           # Persistent cron scheduler service
+├── deps/           # Dependency manager (install, start, stop, health check)
+│   ├── types.rs    # Dependency, DepKind, HealthCheck, HasDependencies
+│   ├── registry.rs # JSON registry (installed state tracking)
+│   ├── fetcher.rs  # DepFetcher trait + real/mock implementations
+│   └── manager.rs  # DepManager lifecycle orchestrator
 ├── gateway/        # Containerized agent proxy (Docker/Apple)
 ├── heartbeat/      # Periodic background task service
 ├── memory/         # Workspace memory (markdown search) + long-term memory
@@ -156,6 +161,13 @@ Message input channels via `Channel` trait:
 - `WebhookChannel` - Generic HTTP POST inbound with optional Bearer auth
 - `WhatsAppChannel` - WhatsApp via whatsmeow-rs bridge (WebSocket JSON protocol)
 - CLI mode via direct agent invocation
+
+### Deps (`src/deps/`)
+- `HasDependencies` trait — components declare external dependencies
+- `DepKind` enum: Binary (GitHub Releases), DockerImage, NpmPackage, PipPackage
+- `DepManager` — install, start, stop, health check lifecycle orchestrator
+- `Registry` — JSON file at `~/.zeptoclaw/deps/registry.json` tracks installed state
+- `DepFetcher` trait — abstracts network calls for testability
 
 ### Tools (`src/tools/`)
 15 built-in tools + dynamic MCP tools via `Tool` async trait. All filesystem tools require workspace.
