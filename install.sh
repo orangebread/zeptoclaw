@@ -38,17 +38,20 @@ curl -fsSL "${BASE_URL}/${ARTIFACT}.sha256" -o "${TMP_DIR}/${BINARY}.sha256"
 # Verify checksum
 echo "Verifying checksum..."
 cd "$TMP_DIR"
+EXPECTED="$(awk '{print $1}' ${BINARY}.sha256)"
 if command -v sha256sum >/dev/null 2>&1; then
-  echo "$(cat ${BINARY}.sha256)" | sha256sum -c - >/dev/null 2>&1
+  ACTUAL="$(sha256sum ${BINARY} | awk '{print $1}')"
 elif command -v shasum >/dev/null 2>&1; then
-  EXPECTED="$(awk '{print $1}' ${BINARY}.sha256)"
   ACTUAL="$(shasum -a 256 ${BINARY} | awk '{print $1}')"
-  if [ "$EXPECTED" != "$ACTUAL" ]; then
-    echo "Error: Checksum verification failed"
-    exit 1
-  fi
 else
   echo "Warning: No checksum tool found, skipping verification"
+  ACTUAL="$EXPECTED"
+fi
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+  echo "Error: Checksum verification failed"
+  echo "  Expected: $EXPECTED"
+  echo "  Actual:   $ACTUAL"
+  exit 1
 fi
 
 # Install
