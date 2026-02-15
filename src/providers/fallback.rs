@@ -138,10 +138,7 @@ impl fmt::Debug for CircuitBreaker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CircuitBreaker")
             .field("state", &self.state())
-            .field(
-                "failure_count",
-                &self.failure_count.load(Ordering::Relaxed),
-            )
+            .field("failure_count", &self.failure_count.load(Ordering::Relaxed))
             .field("failure_threshold", &self.failure_threshold)
             .field("cooldown_secs", &self.cooldown_secs)
             .finish()
@@ -664,9 +661,7 @@ mod tests {
             Box::new(TypedFailProvider {
                 name: "primary",
                 error: || {
-                    ZeptoError::ProviderTyped(ProviderError::ServerError(
-                        "internal error".into(),
-                    ))
+                    ZeptoError::ProviderTyped(ProviderError::ServerError("internal error".into()))
                 },
             }),
             Box::new(SuccessProvider { name: "fallback" }),
@@ -687,9 +682,7 @@ mod tests {
         let provider = FallbackProvider::new(
             Box::new(TypedFailProvider {
                 name: "primary",
-                error: || {
-                    ZeptoError::ProviderTyped(ProviderError::Timeout("timed out".into()))
-                },
+                error: || ZeptoError::ProviderTyped(ProviderError::Timeout("timed out".into())),
             }),
             Box::new(SuccessProvider { name: "fallback" }),
         );
@@ -709,9 +702,7 @@ mod tests {
         let provider = FallbackProvider::new(
             Box::new(TypedFailProvider {
                 name: "primary",
-                error: || {
-                    ZeptoError::ProviderTyped(ProviderError::ModelNotFound("gpt-99".into()))
-                },
+                error: || ZeptoError::ProviderTyped(ProviderError::ModelNotFound("gpt-99".into())),
             }),
             Box::new(SuccessProvider { name: "fallback" }),
         );

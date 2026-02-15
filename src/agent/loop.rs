@@ -330,7 +330,10 @@ impl AgentLoop {
                     5120, // 5KB tool result budget for tier 2
                 );
                 if tier > 0 {
-                    debug!(tier = tier, "Context recovered via tier {} compaction", tier);
+                    debug!(
+                        tier = tier,
+                        "Context recovered via tier {} compaction", tier
+                    );
                 }
                 session.messages = recovered;
             }
@@ -741,10 +744,8 @@ impl AgentLoop {
                             }
                         };
                         metrics_collector.record_tool_call(&name, tool_start.elapsed(), success);
-                        let sanitized = crate::utils::sanitize::sanitize_tool_result(
-                            &result,
-                            budget,
-                        );
+                        let sanitized =
+                            crate::utils::sanitize::sanitize_tool_result(&result, budget);
 
                         // Apply safety layer if enabled
                         let sanitized = if let Some(ref safety) = safety {

@@ -68,9 +68,7 @@ impl ProviderError {
     pub fn should_fallback(&self) -> bool {
         !matches!(
             self,
-            ProviderError::Auth(_)
-                | ProviderError::InvalidRequest(_)
-                | ProviderError::Billing(_)
+            ProviderError::Auth(_) | ProviderError::InvalidRequest(_) | ProviderError::Billing(_)
         )
     }
 
@@ -283,9 +281,15 @@ mod tests {
     #[test]
     fn test_provider_error_status_code() {
         assert_eq!(ProviderError::Auth("x".into()).status_code(), Some(401));
-        assert_eq!(ProviderError::RateLimit("x".into()).status_code(), Some(429));
+        assert_eq!(
+            ProviderError::RateLimit("x".into()).status_code(),
+            Some(429)
+        );
         assert_eq!(ProviderError::Billing("x".into()).status_code(), Some(402));
-        assert_eq!(ProviderError::ServerError("x".into()).status_code(), Some(500));
+        assert_eq!(
+            ProviderError::ServerError("x".into()).status_code(),
+            Some(500)
+        );
         assert_eq!(
             ProviderError::InvalidRequest("x".into()).status_code(),
             Some(400)
