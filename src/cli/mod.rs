@@ -17,6 +17,7 @@ pub mod skills;
 pub mod status;
 pub mod template;
 pub mod tools;
+pub mod secrets;
 pub mod watch;
 
 use anyhow::Result;
@@ -133,6 +134,11 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+    /// Manage secret encryption
+    Secrets {
+        #[command(subcommand)]
+        action: SecretsAction,
     },
     /// Watch a URL for changes and notify
     Watch {
@@ -289,6 +295,16 @@ pub enum TemplateAction {
     },
 }
 
+#[derive(Subcommand)]
+pub enum SecretsAction {
+    /// Encrypt all plaintext secrets in config
+    Encrypt,
+    /// Decrypt all secrets for editing
+    Decrypt,
+    /// Re-encrypt with a new key
+    Rotate,
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum BatchFormat {
     Text,
@@ -379,6 +395,9 @@ pub async fn run() -> Result<()> {
         }
         Some(Commands::Config { action }) => {
             config::cmd_config(action).await?;
+        }
+        Some(Commands::Secrets { action }) => {
+            secrets::cmd_secrets(action).await?;
         }
         Some(Commands::Watch {
             url,
