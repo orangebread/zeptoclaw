@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 
-use zeptoclaw::config::{Config, ContainerAgentBackend, MemoryBackend, ProviderConfig};
+use zeptoclaw::config::{Config, ContainerAgentBackend, ProviderConfig};
 use zeptoclaw::providers::{
     configured_unsupported_provider_names, resolve_runtime_provider, RUNTIME_SUPPORTED_PROVIDERS,
 };
@@ -352,87 +352,10 @@ pub(crate) async fn cmd_status() -> Result<()> {
     );
     println!();
 
-    // Registered tools (static list)
+    // Available tools (dynamic)
     println!("Available Tools");
     println!("---------------");
-    println!("  - echo");
-    println!("  - read_file");
-    println!("  - write_file");
-    println!("  - list_dir");
-    println!("  - edit_file");
-    println!("  - shell");
-    if config
-        .tools
-        .web
-        .search
-        .api_key
-        .as_ref()
-        .map(|k| !k.trim().is_empty())
-        .unwrap_or(false)
-    {
-        println!("  - web_search");
-    } else {
-        println!("  - web_search (disabled: set tools.web.search.api_key or BRAVE_API_KEY)");
-    }
-    println!("  - web_fetch");
-    println!("  - message");
-    println!("  - r8r");
-    if config
-        .tools
-        .whatsapp
-        .phone_number_id
-        .as_deref()
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false)
-        && config
-            .tools
-            .whatsapp
-            .access_token
-            .as_deref()
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false)
-    {
-        println!("  - whatsapp_send");
-    } else {
-        println!("  - whatsapp_send (disabled: set tools.whatsapp.phone_number_id/access_token)");
-    }
-
-    let has_gsheets = config
-        .tools
-        .google_sheets
-        .access_token
-        .as_deref()
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false)
-        || config
-            .tools
-            .google_sheets
-            .service_account_base64
-            .as_deref()
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false);
-    if has_gsheets {
-        println!("  - google_sheets");
-    } else {
-        println!("  - google_sheets (disabled: set tools.google_sheets token config)");
-    }
-
-    match &config.memory.backend {
-        MemoryBackend::Disabled => {
-            println!("  - memory_search (disabled: memory.backend=none)");
-            println!("  - memory_get (disabled: memory.backend=none)");
-        }
-        MemoryBackend::Builtin => {
-            println!("  - memory_search");
-            println!("  - memory_get");
-        }
-        MemoryBackend::Qmd => {
-            println!("  - memory_search (qmd fallback -> builtin)");
-            println!("  - memory_get (qmd fallback -> builtin)");
-        }
-    }
-    println!("  - cron");
-    println!("  - spawn");
+    super::tools::print_tools_summary(&config);
     println!();
 
     Ok(())

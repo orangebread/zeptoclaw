@@ -235,7 +235,6 @@ fn is_tool_configured(config: &Config, name: &str) -> bool {
 }
 
 /// Print a compact tools summary for the status command.
-#[allow(dead_code)]
 pub fn print_tools_summary(config: &Config) {
     let mut ready = 0;
     let mut needs_setup = 0;
