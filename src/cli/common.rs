@@ -232,14 +232,24 @@ pub(crate) async fn create_agent_with_template(
         .unwrap_or_default();
 
     // Resolve tool profile: config default > template override > all tools
-    let profile_tools: Option<HashSet<String>> = config
-        .agents
-        .defaults
-        .tool_profile
-        .as_ref()
-        .and_then(|name| config.tool_profiles.get(name))
-        .and_then(|tools| tools.as_ref())
-        .map(|names| names.iter().map(|n| n.to_ascii_lowercase()).collect());
+    let profile_tools: Option<HashSet<String>> = if let Some(ref profile_name) =
+        config.agents.defaults.tool_profile
+    {
+        match config.tool_profiles.get(profile_name) {
+            Some(tools) => tools
+                .as_ref()
+                .map(|names| names.iter().map(|n| n.to_ascii_lowercase()).collect()),
+            None => {
+                warn!(
+                    "Tool profile '{}' not found in tool_profiles config — all tools enabled",
+                    profile_name
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     let tool_enabled = |name: &str| {
         let key = name.to_ascii_lowercase();
@@ -547,9 +557,18 @@ Enable runtime.allow_fallback_to_native to opt in to native fallback.",
         }
     }
 
-    // Register custom CLI-defined tools
+    // Validate and register custom CLI-defined tools
+    let tool_warnings = zeptoclaw::config::validate::validate_custom_tools(&config);
+    for w in &tool_warnings {
+        warn!("Custom tool config: {}", w);
+    }
     for tool_def in &config.custom_tools {
         if !tool_enabled(&tool_def.name) {
+            continue;
+        }
+        // Skip tools with empty commands (caught by validate_custom_tools)
+        if tool_def.command.trim().is_empty() {
+            warn!(tool = %tool_def.name, "Skipping custom tool with empty command");
             continue;
         }
         let tool = zeptoclaw::tools::custom::CustomTool::new(tool_def.clone());

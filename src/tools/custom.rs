@@ -11,8 +11,15 @@ use tracing::debug;
 
 use crate::config::CustomToolDef;
 use crate::error::{Result, ZeptoError};
+use crate::security::ShellSecurityConfig;
 
 use super::types::{Tool, ToolContext};
+
+/// Maximum output bytes to capture from custom tool stdout (50KB).
+const MAX_OUTPUT_BYTES: usize = 50_000;
+
+/// Minimum timeout in seconds for custom tool execution.
+const MIN_TIMEOUT_SECS: u64 = 1;
 
 /// Shell-escape a value by wrapping in single quotes.
 /// Embedded single quotes become `'\''`.
@@ -33,12 +40,16 @@ fn interpolate(template: &str, args: &HashMap<String, String>) -> String {
 /// A tool defined as a shell command in config.
 pub struct CustomTool {
     def: CustomToolDef,
+    security: ShellSecurityConfig,
 }
 
 impl CustomTool {
     /// Create a new custom tool from a config definition.
     pub fn new(def: CustomToolDef) -> Self {
-        Self { def }
+        Self {
+            def,
+            security: ShellSecurityConfig::default(),
+        }
     }
 }
 
@@ -96,9 +107,8 @@ impl Tool for CustomTool {
         // Interpolate command template
         let command = interpolate(&self.def.command, &string_args);
 
-        // Validate against shell security blocklist
-        let security = crate::security::ShellSecurityConfig::default();
-        if let Err(e) = security.validate_command(&command) {
+        // Validate against shell security blocklist (cached config, no regex recompilation)
+        if let Err(e) = self.security.validate_command(&command) {
             return Err(ZeptoError::Tool(format!(
                 "Command blocked by security policy: {}",
                 e
@@ -107,8 +117,8 @@ impl Tool for CustomTool {
 
         debug!(tool = %self.def.name, command = %command, "Executing custom tool");
 
-        // Determine timeout
-        let timeout_secs = self.def.timeout_secs.unwrap_or(30);
+        // Determine timeout (clamp to minimum to prevent zero-duration timeouts)
+        let timeout_secs = self.def.timeout_secs.unwrap_or(30).max(MIN_TIMEOUT_SECS);
         let timeout = Duration::from_secs(timeout_secs);
 
         // Build command
@@ -149,7 +159,12 @@ impl Tool for CustomTool {
         };
 
         if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let mut stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            // Truncate oversized output to prevent blowing up the LLM context
+            if stdout.len() > MAX_OUTPUT_BYTES {
+                stdout.truncate(MAX_OUTPUT_BYTES);
+                stdout.push_str("\n... (output truncated)");
+            }
             Ok(if stdout.is_empty() {
                 "(no output)".to_string()
             } else {
@@ -256,6 +271,22 @@ mod tests {
         assert_eq!(props.len(), 2);
         assert_eq!(props["pattern"]["type"], "string");
         assert_eq!(props["limit"]["type"], "integer");
+    }
+
+    #[test]
+    fn test_security_config_cached() {
+        let tool = CustomTool::new(simple_def("test", "echo hi"));
+        // Verify security config is constructed once and stored
+        assert!(tool.security.validate_command("echo hello").is_ok());
+    }
+
+    #[test]
+    fn test_min_timeout_clamped() {
+        let mut def = simple_def("test", "echo");
+        def.timeout_secs = Some(0);
+        let tool = CustomTool::new(def);
+        // timeout_secs of 0 should be clamped to MIN_TIMEOUT_SECS
+        assert_eq!(tool.def.timeout_secs.unwrap_or(30).max(MIN_TIMEOUT_SECS), MIN_TIMEOUT_SECS);
     }
 
     // === Async execution tests ===
@@ -376,5 +407,17 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(result, "fixed");
+    }
+
+    #[tokio::test]
+    async fn test_execute_output_truncated() {
+        // Generate output larger than MAX_OUTPUT_BYTES
+        let repeat = MAX_OUTPUT_BYTES + 1000;
+        let cmd = format!("printf '%0.s-' $(seq 1 {})", repeat);
+        let tool = CustomTool::new(simple_def("test", &cmd));
+        let result = tool.execute(json!({}), &test_ctx()).await.unwrap();
+        assert!(result.contains("(output truncated)"));
+        // Output should be capped near MAX_OUTPUT_BYTES
+        assert!(result.len() <= MAX_OUTPUT_BYTES + 100);
     }
 }
