@@ -187,6 +187,8 @@ impl RuntimeContext {
 pub struct ContextBuilder {
     /// The system prompt to use
     system_prompt: String,
+    /// Optional SOUL.md content prepended before system prompt
+    soul_prompt: Option<String>,
     /// Optional skills content to append to system prompt
     skills_prompt: Option<String>,
     /// Optional runtime context to append to system prompt
@@ -207,6 +209,7 @@ impl ContextBuilder {
     pub fn new() -> Self {
         Self {
             system_prompt: DEFAULT_SYSTEM_PROMPT.to_string(),
+            soul_prompt: None,
             skills_prompt: None,
             runtime_context: None,
         }
@@ -228,6 +231,29 @@ impl ContextBuilder {
     /// ```
     pub fn with_system_prompt(mut self, prompt: &str) -> Self {
         self.system_prompt = prompt.to_string();
+        self
+    }
+
+    /// Set SOUL.md identity content, prepended before the system prompt.
+    ///
+    /// SOUL.md defines the agent's personality, values, and behavioral
+    /// constraints. Content is prepended to the system prompt so it takes
+    /// priority in the LLM's context.
+    ///
+    /// # Arguments
+    /// * `content` - The SOUL.md content to prepend
+    ///
+    /// # Example
+    /// ```rust
+    /// use zeptoclaw::agent::ContextBuilder;
+    ///
+    /// let builder = ContextBuilder::new()
+    ///     .with_soul("You are kind and empathetic.");
+    /// let system = builder.build_system_message();
+    /// assert!(system.content.starts_with("You are kind"));
+    /// ```
+    pub fn with_soul(mut self, content: &str) -> Self {
+        self.soul_prompt = Some(content.to_string());
         self
     }
 
@@ -299,7 +325,12 @@ impl ContextBuilder {
     /// assert_eq!(system.role, Role::System);
     /// ```
     pub fn build_system_message(&self) -> Message {
-        let mut content = self.system_prompt.clone();
+        let mut content = String::new();
+        if let Some(ref soul) = self.soul_prompt {
+            content.push_str(soul);
+            content.push_str("\n\n");
+        }
+        content.push_str(&self.system_prompt);
         if let Some(ref skills) = self.skills_prompt {
             content.push_str("\n\n## Available Skills\n\n");
             content.push_str(skills);
@@ -352,6 +383,11 @@ impl ContextBuilder {
     /// Get the current system prompt.
     pub fn system_prompt(&self) -> &str {
         &self.system_prompt
+    }
+
+    /// Check if a SOUL.md identity is configured.
+    pub fn has_soul(&self) -> bool {
+        self.soul_prompt.is_some()
     }
 
     /// Check if skills are configured.
@@ -465,6 +501,50 @@ mod tests {
         assert_eq!(messages[2].content, "Second");
         assert_eq!(messages[3].content, "Third");
         assert_eq!(messages[4].content, "Fourth");
+    }
+
+    #[test]
+    fn test_context_builder_with_soul() {
+        let builder = ContextBuilder::new().with_soul("You are a pirate captain.");
+        assert!(builder.has_soul());
+
+        let system = builder.build_system_message();
+        assert!(system.content.starts_with("You are a pirate captain."));
+        assert!(system.content.contains("ZeptoClaw"));
+    }
+
+    #[test]
+    fn test_soul_prepended_before_system_prompt() {
+        let builder = ContextBuilder::new()
+            .with_soul("SOUL: Be kind.")
+            .with_system_prompt("SYSTEM: Do tasks.");
+        let system = builder.build_system_message();
+
+        let soul_pos = system.content.find("SOUL: Be kind.").unwrap();
+        let system_pos = system.content.find("SYSTEM: Do tasks.").unwrap();
+        assert!(soul_pos < system_pos);
+    }
+
+    #[test]
+    fn test_soul_with_skills() {
+        let builder = ContextBuilder::new()
+            .with_soul("Identity: helper")
+            .with_skills("- /test: Test");
+        let system = builder.build_system_message();
+
+        assert!(system.content.starts_with("Identity: helper"));
+        assert!(system.content.contains("ZeptoClaw"));
+        assert!(system.content.contains("Available Skills"));
+        assert!(system.content.contains("/test"));
+    }
+
+    #[test]
+    fn test_no_soul_by_default() {
+        let builder = ContextBuilder::new();
+        assert!(!builder.has_soul());
+
+        let system = builder.build_system_message();
+        assert!(system.content.starts_with("You are ZeptoClaw"));
     }
 
     #[test]

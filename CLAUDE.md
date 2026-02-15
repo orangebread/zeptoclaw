@@ -1,6 +1,6 @@
 # ZeptoClaw
 
-Rust-based AI agent framework with container isolation. The smallest, fastest, safest member of the Claw family.
+A complete AI agent runtime in 4MB. The best of OpenClaw's integrations, NanoClaw's security, and PicoClaw's minimalism — without their tradeoffs.
 
 ## Quick Reference
 
@@ -96,9 +96,10 @@ src/
 ├── safety/         # Prompt injection detection, secret leak scanning, policy engine
 ├── security/       # Shell blocklist, path validation, mount policy
 ├── session/        # Session, message persistence, conversation history
-├── skills/         # Markdown-based skill system (loader, types)
-├── plugins/        # Plugin system (JSON manifest, discovery, registry)
-├── tools/          # Agent tools (17 tools + MCP)
+├── skills/         # Markdown-based skill system (OpenClaw-compatible, loader, types)
+├── plugins/        # Plugin system (JSON manifest, discovery, registry, binary mode)
+├── tools/          # Agent tools (17 tools + MCP + binary plugins)
+│   ├── binary_plugin.rs # Binary plugin adapter (JSON-RPC 2.0 stdin/stdout)
 │   ├── shell.rs       # Shell execution with runtime isolation
 │   ├── filesystem.rs  # Read, write, list, edit files
 │   ├── web.rs         # Web search (Brave) and fetch with SSRF protection
@@ -147,8 +148,9 @@ Containerized agent proxy for full request isolation:
 LLM provider abstraction via `LLMProvider` trait:
 - `ClaudeProvider` - Anthropic Claude API (120s timeout, SSE streaming)
 - `OpenAIProvider` - OpenAI Chat Completions API (120s timeout, SSE streaming)
-- `RetryProvider` - Decorator: exponential backoff on 429/5xx
-- `FallbackProvider` - Decorator: primary → secondary auto-failover
+- `RetryProvider` - Decorator: exponential backoff on 429/5xx with structured `ProviderError` classification
+- `FallbackProvider` - Decorator: primary → secondary auto-failover with circuit breaker (Closed/Open/HalfOpen)
+- `ProviderError` enum: Auth, RateLimit, Billing, ServerError, InvalidRequest, ModelNotFound, Timeout — enables smart retry/fallback
 - Provider stack in `create_agent()`: base → optional FallbackProvider → optional RetryProvider
 - `StreamEvent` enum + `chat_stream()` on LLMProvider trait for token-by-token streaming
 - `OutputFormat` enum (Text/Json/JsonSchema) with `to_openai_response_format()` and `to_claude_system_suffix()`
@@ -283,7 +285,7 @@ cargo build --release
 ## Testing
 
 ```bash
-# Unit tests (1148 tests)
+# Unit tests (1314 tests)
 cargo test --lib
 
 # Integration tests (68 tests)
@@ -331,6 +333,8 @@ Verified on Apple Silicon (release build):
 2. Add YAML frontmatter (name, description, metadata)
 3. Add markdown instructions for the agent
 4. Or use: `zeptoclaw skills create <name>`
+
+Skills are OpenClaw-compatible — the loader reads `metadata.zeptoclaw`, `metadata.openclaw`, or raw metadata objects (in that priority order). Supported extensions: `os` platform filter, `requires.anyBins` (alias `any_bins`).
 
 ## Dependencies
 

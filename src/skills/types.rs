@@ -38,6 +38,8 @@ pub struct SkillMetadata {
     pub name: String,
     /// Skill description.
     pub description: String,
+    /// Optional version (semver).
+    pub version: Option<String>,
     /// Optional homepage URL.
     pub homepage: Option<String>,
     /// ZeptoClaw metadata payload.
@@ -45,6 +47,7 @@ pub struct SkillMetadata {
 }
 
 /// ZeptoClaw metadata extension.
+/// Compatible with both `metadata.zeptoclaw` and `metadata.openclaw` namespaces.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ZeptoMetadata {
@@ -56,14 +59,19 @@ pub struct ZeptoMetadata {
     pub install: Vec<InstallOption>,
     /// Whether to always inject this skill into context.
     pub always: bool,
+    /// Platform filter (e.g. `["darwin", "linux", "win32"]`). Empty means all platforms.
+    pub os: Vec<String>,
 }
 
 /// Requirement model for a skill.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SkillRequirements {
-    /// Required binaries in `PATH`.
+    /// Required binaries in `PATH` (all must be present).
     pub bins: Vec<String>,
+    /// At least one of these binaries must be in `PATH` (OpenClaw compat).
+    #[serde(default, alias = "anyBins")]
+    pub any_bins: Vec<String>,
     /// Required environment variables.
     pub env: Vec<String>,
 }
