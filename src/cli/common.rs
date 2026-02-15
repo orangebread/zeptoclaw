@@ -298,6 +298,24 @@ pub(crate) async fn create_agent_with_template(
         context_builder = context_builder.with_skills(&skills_prompt);
     }
 
+    // Inject pinned memories into system prompt
+    if !matches!(config.memory.backend, MemoryBackend::Disabled) {
+        match zeptoclaw::memory::longterm::LongTermMemory::new() {
+            Ok(ltm) => {
+                let memory_ctx = zeptoclaw::memory::build_memory_injection(
+                    &ltm,
+                    "",
+                    zeptoclaw::memory::MEMORY_INJECTION_BUDGET,
+                );
+                if !memory_ctx.is_empty() {
+                    context_builder = context_builder.with_memory_context(memory_ctx);
+                    info!("Injected pinned memories into system prompt");
+                }
+            }
+            Err(e) => warn!("Failed to load long-term memory for injection: {}", e),
+        }
+    }
+
     // Create agent loop
     let agent = Arc::new(AgentLoop::with_context_builder(
         config.clone(),
