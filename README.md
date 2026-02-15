@@ -49,6 +49,25 @@ We studied what works — and what doesn't.
 
 **ZeptoClaw** took notes. The integrations, the security, the size discipline — without the tradeoffs each one made. One 4MB Rust binary that starts in 50ms, uses 6MB of RAM, and ships with container isolation, prompt injection detection, and a circuit breaker provider stack.
 
+## Security
+
+AI agents execute code. Most frameworks trust that nothing will go wrong.
+
+The OpenClaw ecosystem has seen CVE-2026-25253 (CVSS 8.8 — cross-site WebSocket hijacking to RCE), ClawHavoc (341 malicious skills, 9,000+ compromised installations), and 42,000 exposed instances with auth bypass. ZeptoClaw was built with this threat model in mind.
+
+| Layer | What it does |
+|-------|-------------|
+| **Container Isolation** | Every shell command runs in Docker or Apple Container — not on your host |
+| **Prompt Injection Detection** | Aho-Corasick multi-pattern matcher (17 patterns) + 4 regex rules |
+| **Secret Leak Scanner** | 22 regex patterns catch API keys, tokens, and credentials before they reach the LLM |
+| **Policy Engine** | 7 rules blocking system file access, crypto key extraction, SQL injection, encoded exploits |
+| **Input Validator** | 100KB limit, null byte detection, whitespace ratio analysis, repetition detection |
+| **Shell Blocklist** | Regex patterns blocking reverse shells, `rm -rf`, privilege escalation |
+| **SSRF Prevention** | DNS pinning, private IP blocking, scheme validation for all web requests |
+| **Tool Approval Gate** | Require explicit confirmation before executing dangerous tools |
+
+Every layer runs by default. No flags to remember, no config to enable.
+
 ## Install
 
 ```bash
