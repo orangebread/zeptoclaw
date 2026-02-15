@@ -85,7 +85,8 @@ async fn cmd_memory_set(
                 .collect()
         })
         .unwrap_or_default();
-    mem.set(&key, &value, &category, tag_vec)?;
+    // Use default importance 1.0 for CLI-set memories
+    mem.set(&key, &value, &category, tag_vec, 1.0)?;
     println!(
         "Stored: {} = \"{}\" ({})",
         key,

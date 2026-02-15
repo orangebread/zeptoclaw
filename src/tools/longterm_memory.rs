@@ -77,6 +77,10 @@ impl Tool for LongTermMemoryTool {
                     "items": { "type": "string" },
                     "description": "Optional tags for search and organization"
                 },
+                "importance": {
+                    "type": "number",
+                    "description": "Optional importance weight (0.0-2.0+, default 1.0). Higher values decay slower over time."
+                },
                 "query": {
                     "type": "string",
                     "description": "Search query (searches across key, value, category, and tags)"
@@ -148,6 +152,13 @@ impl LongTermMemoryTool {
             })
             .unwrap_or_default();
 
+        // Default importance to 1.0 if not specified
+        let importance = args
+            .get("importance")
+            .and_then(|v| v.as_f64())
+            .map(|f| f as f32)
+            .unwrap_or(1.0);
+
         let mut memory = self
             .memory
             .lock()
@@ -155,7 +166,7 @@ impl LongTermMemoryTool {
 
         // Check if this is an update or a new entry.
         let is_update = memory.get_readonly(key).is_some();
-        memory.set(key, value, category, tags)?;
+        memory.set(key, value, category, tags, importance)?;
 
         if is_update {
             Ok(format!("Updated memory '{}'", key))
