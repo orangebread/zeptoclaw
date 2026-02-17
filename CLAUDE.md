@@ -105,7 +105,8 @@ src/
 │   ├── slack.rs    # Slack outbound channel
 │   ├── discord.rs  # Discord Gateway WebSocket + REST
 │   ├── webhook.rs  # Generic HTTP webhook inbound
-│   └── whatsapp.rs # WhatsApp via whatsmeow-rs bridge (WebSocket)
+│   ├── whatsapp.rs # WhatsApp via whatsmeow-rs bridge (WebSocket)
+│   └── whatsapp_cloud.rs # WhatsApp Cloud API (official webhook + REST)
 ├── cli/            # Clap command parsing + command handlers
 │   ├── memory.rs   # Memory list/search/set/delete/stats commands
 │   ├── tools.rs    # Tool discovery list/info + dynamic status summary
@@ -176,6 +177,9 @@ Containerized agent proxy for full request isolation:
 - Stdin/stdout IPC with containerized agent
 - Semaphore-based concurrency limiting (`max_concurrent` config)
 - Mount allowlist validation, docker binary verification
+- **Auto-installs channel dependencies** (e.g., whatsmeow-bridge for WhatsApp)
+- Dependencies installed at gateway startup via DepManager
+- Warn-and-continue on dependency failures (non-blocking)
 
 ### Providers (`src/providers/`)
 LLM provider abstraction via `LLMProvider` trait:
@@ -195,6 +199,7 @@ Message input channels via `Channel` trait:
 - `DiscordChannel` - Discord Gateway WebSocket + REST API messaging
 - `WebhookChannel` - Generic HTTP POST inbound with optional Bearer auth
 - `WhatsAppChannel` - WhatsApp via whatsmeow-rs bridge (WebSocket JSON protocol)
+- `WhatsAppCloudChannel` - WhatsApp Cloud API (webhook inbound + REST outbound, no bridge)
 - CLI mode via direct agent invocation
 - All channels support `deny_by_default` config option for sender allowlists
 - `ChannelManager` stores channel handles as `Arc<Mutex<_>>`, so outbound dispatch does not hold the channel map lock across async `send()`
