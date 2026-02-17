@@ -42,7 +42,8 @@ const MAX_MESSAGE_LENGTH: usize = 4096;
 // --- HTTP response constants ---
 
 const HTTP_200_OK: &str = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-const HTTP_403_FORBIDDEN: &str = "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+const HTTP_403_FORBIDDEN: &str =
+    "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 
 // --- Meta webhook payload types ---
 
@@ -79,6 +80,7 @@ struct WebhookValue {
     #[serde(default)]
     contacts: Vec<WebhookContact>,
     #[serde(default)]
+    #[allow(dead_code)]
     metadata: Option<WebhookMetadata>,
 }
 
@@ -127,6 +129,7 @@ struct WebhookProfile {
 #[derive(Debug, Deserialize)]
 struct WebhookMetadata {
     #[serde(default)]
+    #[allow(dead_code)]
     phone_number_id: String,
 }
 
@@ -170,7 +173,10 @@ fn parse_http_request(raw: &[u8]) -> Result<ParsedHttpRequest> {
 
     // Split path and query string
     let (path, query) = match full_path.find('?') {
-        Some(pos) => (full_path[..pos].to_string(), full_path[pos + 1..].to_string()),
+        Some(pos) => (
+            full_path[..pos].to_string(),
+            full_path[pos + 1..].to_string(),
+        ),
         None => (full_path, String::new()),
     };
 
@@ -195,10 +201,12 @@ fn parse_http_request(raw: &[u8]) -> Result<ParsedHttpRequest> {
 /// Extract a query parameter value by name from a query string.
 fn query_param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
     query.split('&').find_map(|pair| {
-        let mut kv = pair.splitn(2, '=');
-        let key = kv.next()?;
-        let value = kv.next()?;
-        if key == name { Some(value) } else { None }
+        let (key, value) = pair.split_once('=')?;
+        if key == name {
+            Some(value)
+        } else {
+            None
+        }
     })
 }
 
@@ -242,7 +250,10 @@ fn extract_text_messages(
             for msg in &value.messages {
                 // Only handle text messages
                 if msg.msg_type != "text" {
-                    debug!("WhatsApp Cloud: ignoring non-text message type '{}'", msg.msg_type);
+                    debug!(
+                        "WhatsApp Cloud: ignoring non-text message type '{}'",
+                        msg.msg_type
+                    );
                     continue;
                 }
 
@@ -602,16 +613,24 @@ impl Channel for WhatsAppCloudChannel {
             }
         });
 
-        let endpoint = format!("{}/{}/messages", WHATSAPP_API_BASE, self.config.phone_number_id);
+        let endpoint = format!(
+            "{}/{}/messages",
+            WHATSAPP_API_BASE, self.config.phone_number_id
+        );
         let response = self
             .client
             .post(&endpoint)
-            .header("Authorization", format!("Bearer {}", self.config.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.access_token),
+            )
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
             .await
-            .map_err(|e| ZeptoError::Channel(format!("WhatsApp Cloud API request failed: {}", e)))?;
+            .map_err(|e| {
+                ZeptoError::Channel(format!("WhatsApp Cloud API request failed: {}", e))
+            })?;
 
         let status = response.status();
         if !status.is_success() {
@@ -711,7 +730,8 @@ mod tests {
 
     #[test]
     fn test_verification_wrong_mode() {
-        let query = "hub.mode=unsubscribe&hub.verify_token=verify-secret&hub.challenge=challenge123";
+        let query =
+            "hub.mode=unsubscribe&hub.verify_token=verify-secret&hub.challenge=challenge123";
         let result = WhatsAppCloudChannel::handle_verification(query, "verify-secret");
         assert!(result.is_none());
     }
@@ -762,9 +782,18 @@ mod tests {
         assert_eq!(msg.sender_id, "60123456789");
         assert_eq!(msg.chat_id, "60123456789");
         assert_eq!(msg.content, "Hello there!");
-        assert_eq!(msg.metadata.get("whatsapp_message_id"), Some(&"wamid.abc123".to_string()));
-        assert_eq!(msg.metadata.get("timestamp"), Some(&"1707900000".to_string()));
-        assert_eq!(msg.metadata.get("sender_name"), Some(&"John Doe".to_string()));
+        assert_eq!(
+            msg.metadata.get("whatsapp_message_id"),
+            Some(&"wamid.abc123".to_string())
+        );
+        assert_eq!(
+            msg.metadata.get("timestamp"),
+            Some(&"1707900000".to_string())
+        );
+        assert_eq!(
+            msg.metadata.get("sender_name"),
+            Some(&"John Doe".to_string())
+        );
     }
 
     #[test]
@@ -884,7 +913,10 @@ mod tests {
 
     #[test]
     fn test_query_param_found() {
-        assert_eq!(query_param("hub.mode=subscribe&hub.challenge=abc", "hub.challenge"), Some("abc"));
+        assert_eq!(
+            query_param("hub.mode=subscribe&hub.challenge=abc", "hub.challenge"),
+            Some("abc")
+        );
     }
 
     #[test]
@@ -978,13 +1010,10 @@ mod tests {
         stream.write_all(request.as_bytes()).await.unwrap();
 
         let mut buf = vec![0u8; 4096];
-        let n = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            stream.read(&mut buf),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+        let n = tokio::time::timeout(std::time::Duration::from_secs(5), stream.read(&mut buf))
+            .await
+            .unwrap()
+            .unwrap();
 
         let response = std::str::from_utf8(&buf[..n]).unwrap();
         assert!(response.starts_with("HTTP/1.1 200 OK"));
@@ -1021,25 +1050,20 @@ mod tests {
 
         // Read response
         let mut buf = vec![0u8; 4096];
-        let n = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            stream.read(&mut buf),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+        let n = tokio::time::timeout(std::time::Duration::from_secs(5), stream.read(&mut buf))
+            .await
+            .unwrap()
+            .unwrap();
 
         let response = std::str::from_utf8(&buf[..n]).unwrap();
         assert!(response.starts_with("HTTP/1.1 200 OK"));
 
         // Verify message on bus
-        let received = tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            bus.consume_inbound(),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+        let received =
+            tokio::time::timeout(std::time::Duration::from_secs(2), bus.consume_inbound())
+                .await
+                .unwrap()
+                .unwrap();
 
         assert_eq!(received.channel, "whatsapp_cloud");
         assert_eq!(received.sender_id, "60123456789");

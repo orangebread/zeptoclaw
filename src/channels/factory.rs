@@ -119,7 +119,9 @@ pub async fn register_configured_channels(
     if let Some(ref wac_config) = config.channels.whatsapp_cloud {
         if wac_config.enabled {
             if wac_config.phone_number_id.is_empty() || wac_config.access_token.is_empty() {
-                warn!("WhatsApp Cloud channel enabled but phone_number_id or access_token is empty");
+                warn!(
+                    "WhatsApp Cloud channel enabled but phone_number_id or access_token is empty"
+                );
             } else {
                 manager
                     .register(Box::new(WhatsAppCloudChannel::new(
