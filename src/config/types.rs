@@ -135,6 +135,9 @@ pub struct RoutinesConfig {
     /// Random jitter in milliseconds added to cron tick intervals.
     #[serde(default)]
     pub jitter_ms: u64,
+    /// Policy for missed schedules when process restarts.
+    #[serde(default)]
+    pub on_miss: crate::cron::OnMiss,
 }
 
 impl Default for RoutinesConfig {
@@ -144,6 +147,7 @@ impl Default for RoutinesConfig {
             cron_interval_secs: 60,
             max_concurrent: 3,
             jitter_ms: 0,
+            on_miss: crate::cron::OnMiss::Skip,
         }
     }
 }

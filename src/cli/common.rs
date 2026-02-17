@@ -473,7 +473,7 @@ pub(crate) async fn create_agent_with_template(
         agent.bus().clone(),
         config.routines.jitter_ms,
     ));
-    cron_service.start().await?;
+    cron_service.start(&config.routines.on_miss).await?;
 
     // Create runtime from config
     let runtime = match create_runtime(&config.runtime).await {
