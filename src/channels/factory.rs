@@ -178,7 +178,7 @@ pub async fn register_configured_channels(
 mod tests {
     use super::*;
     use crate::bus::MessageBus;
-    use crate::config::{Config, SlackConfig, TelegramConfig, WhatsAppConfig};
+    use crate::config::{Config, SlackConfig, TelegramConfig, WhatsAppCloudConfig, WhatsAppConfig};
 
     #[tokio::test]
     async fn test_register_configured_channels_registers_telegram() {
@@ -234,5 +234,25 @@ mod tests {
 
         assert_eq!(count, 1);
         assert!(manager.has_channel("slack").await);
+    }
+
+    #[tokio::test]
+    async fn test_register_configured_channels_registers_whatsapp_cloud() {
+        let bus = Arc::new(MessageBus::new());
+        let mut config = Config::default();
+        config.channels.whatsapp_cloud = Some(WhatsAppCloudConfig {
+            enabled: true,
+            phone_number_id: "123456".to_string(),
+            access_token: "test-token".to_string(),
+            webhook_verify_token: "verify".to_string(),
+            port: 0,
+            ..Default::default()
+        });
+
+        let manager = ChannelManager::new(bus.clone(), config.clone());
+        let count = register_configured_channels(&manager, bus, &config).await;
+
+        assert_eq!(count, 1);
+        assert!(manager.has_channel("whatsapp_cloud").await);
     }
 }
