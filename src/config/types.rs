@@ -1416,4 +1416,55 @@ mod tests {
         assert_eq!(ngrok.authtoken.as_deref(), Some("tok_123"));
         assert_eq!(ngrok.domain.as_deref(), Some("my.ngrok.io"));
     }
+
+    #[test]
+    fn test_whatsapp_cloud_config_defaults() {
+        let config = WhatsAppCloudConfig::default();
+        assert!(!config.enabled);
+        assert!(config.phone_number_id.is_empty());
+        assert!(config.access_token.is_empty());
+        assert!(config.webhook_verify_token.is_empty());
+        assert_eq!(config.bind_address, "127.0.0.1");
+        assert_eq!(config.port, 9877);
+        assert_eq!(config.path, "/whatsapp");
+        assert!(config.allow_from.is_empty());
+        assert!(!config.deny_by_default);
+    }
+
+    #[test]
+    fn test_whatsapp_cloud_config_deserialize() {
+        let json = r#"{
+            "enabled": true,
+            "phone_number_id": "123456",
+            "access_token": "EAAx...",
+            "webhook_verify_token": "my-verify-secret",
+            "port": 8443,
+            "allow_from": ["60123456789"]
+        }"#;
+        let config: WhatsAppCloudConfig = serde_json::from_str(json).unwrap();
+        assert!(config.enabled);
+        assert_eq!(config.phone_number_id, "123456");
+        assert_eq!(config.access_token, "EAAx...");
+        assert_eq!(config.webhook_verify_token, "my-verify-secret");
+        assert_eq!(config.port, 8443);
+        assert_eq!(config.allow_from, vec!["60123456789"]);
+    }
+
+    #[test]
+    fn test_channels_config_with_whatsapp_cloud() {
+        let json = r#"{
+            "channels": {
+                "whatsapp_cloud": {
+                    "enabled": true,
+                    "phone_number_id": "999",
+                    "access_token": "tok",
+                    "webhook_verify_token": "verify"
+                }
+            }
+        }"#;
+        let config: Config = serde_json::from_str(json).unwrap();
+        let wac = config.channels.whatsapp_cloud.unwrap();
+        assert!(wac.enabled);
+        assert_eq!(wac.phone_number_id, "999");
+    }
 }
