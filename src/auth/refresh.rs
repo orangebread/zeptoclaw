@@ -117,19 +117,6 @@ where
     }
 
     match refresh_fn(&token_url, refresh_token, client_id).await {
-            return Err(ZeptoError::Config(format!(
-                "Cannot refresh OAuth token for '{}': unknown token endpoint",
-                provider
-            )));
-        }
-        warn!(
-            provider = provider,
-            "OAuth token is expiring soon but token endpoint is unknown; using existing token"
-        );
-        return Ok(token.access_token);
-    }
-
-    match refresh_fn(&token_url, refresh_token, client_id).await {
         Ok(new_tokens) => {
             // Build updated token set
             let updated = OAuthTokenSet {
