@@ -48,12 +48,28 @@ git push origin main --force-with-lease
 
 This ensures each PR only contains its own commits. PRs that include unrelated commits from other branches will be asked to rebase.
 
+## Issues Before PRs
+
+For anything beyond a trivial fix (typo, one-line bug), **open an issue first**:
+
+1. **Bugs** — Use the "Bug Report" template
+2. **Features** — Use the "Feature Request" template. Describe the problem, proposed solution, and scope estimate
+3. **Design discussions** — Open a blank issue with the `rfc` label for larger changes
+
+This lets maintainers weigh in on scope and approach before you invest time coding. PRs without a linked issue may be asked to create one.
+
+**Labels we use:**
+- **Type:** `bug`, `feat`, `rfc`, `chore`, `docs`
+- **Area:** `area:tools`, `area:channels`, `area:providers`, `area:safety`, `area:config`, `area:cli`, `area:memory`
+- **Priority:** `P1-critical`, `P2-high`, `P3-normal`
+
 ## Pull Request Process
 
-1. Create a feature branch from `upstream/main` (see above)
-2. Make your changes with clear, focused commits
-3. Ensure all quality gates pass (see below)
-4. Open a PR against `main` with a description of what and why
+1. Open an issue describing the change (see above)
+2. Create a feature branch from `upstream/main` (see Branching section)
+3. Make your changes with clear, focused commits
+4. Ensure all quality gates pass (see below)
+5. Open a PR against `main` — reference the issue with `Closes #N`
 
 ## Quality Gates
 

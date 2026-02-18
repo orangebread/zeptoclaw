@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/qhkm/zeptoclaw/blob/main/CLAUDE.md
+    about: Architecture reference and module documentation
+  - name: Contributing Guide
+    url: https://github.com/qhkm/zeptoclaw/blob/main/CONTRIBUTING.md
+    about: How to set up, branch, and submit PRs
