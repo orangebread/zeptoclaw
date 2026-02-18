@@ -92,6 +92,41 @@ cargo fmt
 ./target/release/zeptoclaw watch https://example.com --interval 1h --notify telegram
 ```
 
+## Agent Workflow — Task Tracking Protocol
+
+Every Claude Code session in this repo MUST follow these three rules:
+
+### 1. Session Start — Check open issues
+
+Before starting any work, run:
+
+```bash
+gh issue list --repo qhkm/zeptoclaw --state open --limit 20
+```
+
+Present the open issues to the user and ask what they want to work on. If they pick an existing issue, reference it throughout the session.
+
+### 2. New Work — Create issue first
+
+When the user requests work that has no matching open issue (new feature, bug fix, refactor), create one **before writing code**:
+
+```bash
+gh issue create --repo qhkm/zeptoclaw \
+  --title "feat: short description" \
+  --label "feat,area:tools" \
+  --body "Brief description of the work."
+```
+
+Use labels from: `bug`, `feat`, `rfc`, `chore`, `docs` + `area:tools`, `area:channels`, `area:providers`, `area:safety`, `area:config`, `area:cli`, `area:memory` + `P1-critical`, `P2-high`, `P3-normal`.
+
+Skip issue creation only for trivial changes (typo fixes, one-line tweaks).
+
+### 3. Session End — Link and close
+
+- If creating a PR: include `Closes #N` in the PR body
+- If committing directly to main: close the issue with `gh issue close N --comment "Done in <commit-sha>"`
+- Update `CLAUDE.md` and `AGENTS.md` per the post-implementation checklist
+
 ## Architecture
 
 ```

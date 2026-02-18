@@ -17,12 +17,23 @@ Project-level guidance for coding agents working in this repository.
 - Channel dispatch: avoids holding the channels map `RwLock` across async `send()` awaits
 - Tests: 1719 lib + 54 main + 23 cli_smoke + 68 integration + 140 doc (116 passed, 24 ignored)
 
+## Task Tracking Protocol
+
+**Every session MUST track work via GitHub Issues.**
+
+1. **Start of session** — Run `gh issue list --repo qhkm/zeptoclaw --state open --limit 20` and present open issues
+2. **New work** — If no issue exists for the requested work, create one with `gh issue create` before writing code. Use labels: type (`bug`/`feat`/`rfc`/`chore`/`docs`), area (`area:tools`/`area:channels`/etc.), priority (`P1`/`P2`/`P3`)
+3. **End of work** — Close the issue: `Closes #N` in PR body, or `gh issue close N` for direct commits
+
+Skip issue creation only for trivial changes (typo fixes, one-line tweaks).
+
 ## Post-Implementation Checklist
 
-**After completing ANY feature, you MUST update these files:**
+**After completing ANY feature, you MUST:**
 
-1. **`CLAUDE.md`** — update architecture tree, test counts, module descriptions, new CLI flags
-2. **`AGENTS.md`** (this file) — update project snapshot above
+1. **Close the GitHub issue** — `Closes #N` in PR or `gh issue close N`
+2. **`CLAUDE.md`** — update architecture tree, test counts, module descriptions, new CLI flags
+3. **`AGENTS.md`** (this file) — update project snapshot above
 
 If you skip this, the next agent starts with stale context and wastes time.
 
