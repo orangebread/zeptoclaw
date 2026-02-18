@@ -17,6 +17,13 @@ Project-level guidance for coding agents working in this repository.
 - Channel dispatch: avoids holding the channels map `RwLock` across async `send()` awaits
 - Tests: 1719 lib + 54 main + 23 cli_smoke + 68 integration + 140 doc (116 passed, 24 ignored)
 
+## Branch Strategy (Fork + Upstream)
+
+- `main` is a strict mirror of `upstream/main` only. Do not commit feature work directly to `main`.
+- `wip/all-work` is the cumulative local integration branch for ongoing and personal workflow changes.
+- `codex/pr-*` or `pr/*` branches are PR branches: cut from `upstream/main`, one topic per branch, no merge/sync commits.
+- Open upstream PRs only from clean PR branches, never from `main` or `wip/all-work`.
+
 ## Post-Implementation Checklist
 
 **After completing ANY feature, you MUST update these files:**
@@ -24,7 +31,9 @@ Project-level guidance for coding agents working in this repository.
 1. **`CLAUDE.md`** — update architecture tree, test counts, module descriptions, new CLI flags
 2. **`AGENTS.md`** (this file) — update project snapshot above
 
-If you skip this, the next agent starts with stale context and wastes time.
+Apply these updates on your working branch (typically `wip/all-work`) so local agent context stays current.
+
+Unless upstream maintainers explicitly request these docs updates, do not include `AGENTS.md` / `CLAUDE.md` edits in upstream PR branches.
 
 ## File Ownership Rules (for parallel agents)
 
@@ -79,6 +88,13 @@ cargo bench --bench message_bus --no-run
 - Do not revert unrelated local changes.
 - If you detect unexpected file modifications during work, pause and ask before proceeding.
 - Include file/line references when reporting review findings.
+- Before opening a PR branch, verify branch hygiene:
+  - `git log --oneline upstream/main..HEAD`
+  - `git diff --name-only upstream/main...HEAD`
+  - `cargo fmt -- --check`
+  - `cargo clippy -- -D warnings`
+  - `cargo test`
+- PR branches should not carry local-only docs changes (`AGENTS.md`, `CLAUDE.md`) unless the PR purpose is documentation sync.
 
 ## Common Patterns
 
