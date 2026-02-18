@@ -97,6 +97,7 @@ cargo fmt
 ```
 src/
 ├── agent/          # Agent loop, context builder, token budget, context compaction
+├── auth/           # OAuth (PKCE), token refresh, encrypted token store
 ├── bus/            # Async message bus (pub/sub)
 ├── channels/       # Input channels (Telegram, Slack, WhatsApp, etc.)
 │   ├── factory.rs  # Channel factory/registry
@@ -198,6 +199,9 @@ LLM provider abstraction via `LLMProvider` trait:
 - `StreamEvent` enum + `chat_stream()` on LLMProvider trait for token-by-token streaming
 - `OutputFormat` enum (Text/Json/JsonSchema) with `to_openai_response_format()` and `to_claude_system_suffix()`
 
+### Auth (`src/auth/`)
+OAuth support with PKCE, CSRF state validation, encrypted token persistence, and best-effort refresh before expiry.
+
 ### Channels (`src/channels/`)
 Message input channels via `Channel` trait:
 - `TelegramChannel` - Telegram bot integration
@@ -298,6 +302,8 @@ Config file: `~/.zeptoclaw/config.json`
 Environment variables override config:
 - `ZEPTOCLAW_PROVIDERS_ANTHROPIC_API_KEY`
 - `ZEPTOCLAW_PROVIDERS_OPENAI_API_KEY`
+- `ZEPTOCLAW_OAUTH_CLIENT_ID` — OAuth client id (used by `auth login`)
+- `ZEPTOCLAW_PROVIDERS_ANTHROPIC_OAUTH_CLIENT_ID` — provider-specific OAuth client id override
 - `ZEPTOCLAW_CHANNELS_TELEGRAM_BOT_TOKEN`
 - `ZEPTOCLAW_AGENTS_DEFAULTS_AGENT_TIMEOUT_SECS` — wall-clock timeout for agent runs (default: 300)
 - `ZEPTOCLAW_AGENTS_DEFAULTS_MESSAGE_QUEUE_MODE` — "collect" (default) or "followup"
@@ -370,7 +376,7 @@ cargo build --release
 ## Testing
 
 ```bash
-# Unit tests (1616 tests)
+# Unit tests (1719 tests)
 cargo test --lib
 
 # Main binary tests (54 tests)
@@ -382,7 +388,7 @@ cargo test --test cli_smoke
 # Integration tests (68 tests)
 cargo test --test integration
 
-# All tests (~1,900 total including doc tests)
+# All tests (~2,004 total including doc tests)
 cargo test
 
 # Specific test
